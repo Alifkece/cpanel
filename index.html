@@ -245,10 +245,18 @@ const DOMAIN="https://klzzh.agilsubdo.dpdns.org"
 const PLTA="ptla_wNvqN68ca9WQJXClCwGET6gLgV4rMLVQLjaLJzTKGIP"
 const PLTC="ptlc_SQhI02Uj5ss4Oetdjrbq59e7wedkarwq2jQpIWcpED1"
 
-function createPanel(){
+function ramConvert(ram){
+
+if(ram==="UNLIMITED") return 0
+
+return parseInt(ram.replace("GB",""))*1024
+
+}
+
+async function createPanel(){
 
 const type=document.getElementById("type").value
-const username=document.getElementById("username").value
+const username=document.getElementById("username").value.toLowerCase()
 const ram=document.getElementById("ram").value
 
 if(!username && type==="user"){
@@ -258,14 +266,13 @@ return
 
 loading.style.display="block"
 
-let text=""
-
 if(type==="adp"){
 
-text=`
+let text=`
 ADMIN PANEL
 
-Domain : ${DOMAIN}
+Domain :
+${DOMAIN}
 
 PLTA :
 ${PLTA}
@@ -274,25 +281,7 @@ PLTC :
 ${PLTC}
 `
 
-}else{
-
-const email=username+"@gmail.com"
-const password=username+"001"
-
-text=`
-PANEL BARU
-
-Username : ${username}
-Email : ${email}
-Password : ${password}
-RAM : ${ram}
-
-Login :
-${DOMAIN}
-`
-}
-
-fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
+await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
@@ -302,9 +291,134 @@ chat_id:OWNER_ID,
 text:text
 })
 })
-.then(()=>alert("Berhasil dikirim ke Telegram"))
-.catch(()=>alert("Gagal kirim"))
-.finally(()=>loading.style.display="none")
+
+alert("Data admin dikirim ke Telegram")
+loading.style.display="none"
+return
+
+}
+
+const email=username+"@gmail.com"
+const password=username.charAt(0).toUpperCase()+username.slice(1)+"001"
+
+try{
+
+/* CREATE USER */
+
+const userRes=await fetch(DOMAIN+"/api/application/users",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"Authorization":"Bearer "+PLTA,
+"Accept":"Application/vnd.pterodactyl.v1+json"
+},
+body:JSON.stringify({
+email:email,
+username:username,
+first_name:username,
+last_name:"Panel",
+password:password
+})
+})
+
+const userData=await userRes.json()
+
+if(userData.errors){
+alert("Gagal buat user")
+loading.style.display="none"
+return
+}
+
+const userId=userData.attributes.id
+
+/* CREATE SERVER */
+
+const ramMB=ramConvert(ram)
+
+await fetch(DOMAIN+"/api/application/servers",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"Authorization":"Bearer "+PLTA,
+"Accept":"Application/vnd.pterodactyl.v1+json"
+},
+body:JSON.stringify({
+
+name:username,
+user:userId,
+egg:15,
+docker_image:"ghcr.io/parkervcp/yolks:nodejs_18",
+startup:"npm start",
+
+environment:{
+INST:"npm",
+USER_UPLOAD:"0",
+AUTO_UPDATE:"0",
+CMD_RUN:"npm start"
+},
+
+limits:{
+memory:ramMB,
+swap:0,
+disk:ramMB,
+io:500,
+cpu:0
+},
+
+feature_limits:{
+databases:1,
+backups:1,
+allocations:1
+},
+
+deploy:{
+locations:[1],
+dedicated_ip:false,
+port_range:[]
+}
+
+})
+})
+
+/* TELEGRAM MESSAGE */
+
+let msg=`
+Hai @ᯓ𝕬𝖑𝖎𝖋𝖋𝙏𝙯𝙮𝗥𝟰 || 𝐄𝐯𝐞𝐫𝐧𝐢𝐠𝐡𝐭🍓||ᬊ
+
+⎙─➤ *👤USERNAME* : ${username}
+⎙─➤ *🔐PASSWORD* : ${password}
+⎙─➤ *🌐LOGIN* : ${DOMAIN}
+
+NOTE:
+OWNER HANYA MENGIRIM 1X DATA 
+AKUN ANDA MOHON DI SIMPAN BAIK BAIK
+KALAU DATA AKUN ANDA HILANG OWNER
+TIDAK DAPAT MENGIRIM AKUN ANDA LAGI
+=====================================
+`
+
+await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+chat_id:OWNER_ID,
+video:"https://files.catbox.moe/7gpczo.mp4",
+caption:msg,
+parse_mode:"Markdown"
+})
+})
+
+alert("Panel berhasil dibuat")
+
+}catch(err){
+
+alert("Error membuat panel")
+
+}
+
+loading.style.display="none"
 
 }
 
